@@ -1,0 +1,90 @@
+<!DOCTYPE html> 
+<html>  
+  <head>
+    <title>Golf score keeper</title>
+    <meta name="format-detection" content="telephone=no" />
+     <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width, height=device-height, target-densitydpi=device-dpi" />
+                <link rel="stylesheet" type="text/css" href="css/index.css" />
+		<script type="text/javascript" src="jquery.min.js"></script>
+    <script>
+      var db = window.openDatabase("scores", "", "Previous Scores", 1024*1000);
+
+      function insertScore(hole_num, num_strokes, course_id, email) {
+       db.transaction(function(tx) {
+          tx.executeSql('INSERT INTO Strokes (course_id, hole_num, num_strokes, email) VALUES (?, ?, ?, ?)', [course_id, hole_num, num_strokes, email]);
+       });
+      }
+
+      function renderResults(tx, rs) {
+        e = $('#previous_scores');
+        e.html("");
+        for(var i=0; i < rs.rows.length; i++) {
+          r = rs.rows.item(i);
+          e.html(e.html() + 'Versuch: ' + r['id'] + ', Loch: ' + r['hole_num'] + ', Schl&auml;ge: ' + r['num_strokes'] + ', Mail: ' + r['email'] + '<br />');
+        }
+      }
+
+      function renderScores(email) {
+        db.transaction(function(tx) {
+          if (!(email === undefined)) {
+            tx.executeSql('SELECT * FROM Strokes WHERE email = ?', [email], renderResults);
+          } else {
+            tx.executeSql('SELECT * FROM Strokes', [], renderResults);
+          }
+        });
+      }
+
+      $(document).ready(function() {
+        db.transaction(function(tx) {
+          tx.executeSql('CREATE TABLE IF NOT EXISTS Courses(id INTEGER PRIMARY KEY, name TEXT, latitude FLOAT, longitude FLOAT)', []);
+          tx.executeSql('CREATE TABLE IF NOT EXISTS Strokes(id INTEGER PRIMARY KEY, course_id INTEGER, hole_num INTEGER, num_strokes INTEGER, email TEXT)', []);
+        });
+
+        $('#score_form').submit(function() {
+         strokes = { 1: $('#hole1').val(), 2: $('#hole2').val() };
+          for (var hole_num in strokes) {
+            insertScore(hole_num, strokes[hole_num], 1, $('#email').val());
+          }
+
+          renderScores();
+          return false;
+        });
+        
+        $("#filter_by_mail").submit(function() {
+			e = $("filter_by_mail").val();
+			renderScores(e);
+			return false;
+		});
+		renderScores();
+      });
+    </script>
+  </head>
+  <body>
+    <form method="get" id="score_form">
+      <div>
+        <label for="1">Hole 1</label>
+        <input type="number" min="1" value="4" id="hole1" name="hole1" size="2" step="1" />
+      </div>
+      <div>
+        <label for="2">Hole 2</label>
+        <input type="number" min="1" value="4" id="hole2" name="hole2" size="2" step="1" />
+      </div>
+      <div>
+        <input type="email" id="email" placeholder="Enter your email address" size="40"/>
+      </div>
+      <div>
+        <input type="submit" value="Upload Score" />
+      </div>
+    </form>
+    <div>
+      <h2>Previous Scores</h2>
+      <form id="filter_only_scores_from">
+		<input type="email" placeholder="Filtern" size="40" id="filter_by_mail" /><br>
+		<input type="submit" value="Filter anwenden" />
+      </form>
+    </div>
+    <div id="previous_scores">
+
+    </div>
+  </body>
+</html> 
